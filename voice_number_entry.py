@@ -5,10 +5,11 @@ import re
 
 
 # ============================================================
-# WORD TO NUMBER CONVERSION
+# WORD TO NUMBER CONVERSION (ENGLISH + SINHALA)
 # ============================================================
 
 number_words = {
+    # English
     "zero": 0,
     "one": 1,
     "two": 2,
@@ -36,35 +37,88 @@ number_words = {
     "sixty": 60,
     "seventy": 70,
     "eighty": 80,
-    "ninety": 90
+    "ninety": 90,
+
+    # Sinhala
+    "බිංදුව": 0, "බින්දුව": 0, "බිංදු": 0,
+    "එක": 1, "එකක්": 1,
+    "දෙක": 2, "දෙකක්": 2,
+    "තුන": 3, "තුනක්": 3,
+    "හතර": 4, "හතරක්": 4,
+    "පහ": 5, "පහක්": 5, "පන්": 5,
+    "හය": 6, "හයක්": 6, "හයසිය": 6,
+    "හත": 7, "හතක්": 7, "හත්": 7,
+    "අට": 8, "අටක්": 8, "අටසිය": 8,
+    "නවය": 9, "නමය": 9, "නවයක්": 9, "නමයක්": 9, "නවසිය": 9, "නමසිය": 9,
+    "දහය": 10, "දහයක්": 10,
+    "එකොළොස": 11, "එකොළොස්": 11, "එකොළහ": 11,
+    "දොළොස": 12, "දොළොස්": 12, "දොළහ": 12,
+    "තෙළෙස": 13, "තෙළෙස්": 13, "දහතුන": 13,
+    "දහහතර": 14,
+    "පහළොස": 15, "පහළොස්": 15, "පහළොව": 15, "පසළොස්": 15,
+    "දහසය": 16,
+    "දහහත": 17,
+    "දහඅට": 18,
+    "දහනවය": 19, "දහනමය": 19,
+    "විස්ස": 20, "විසි": 20,
+    "තිහ": 30, "තිස්": 30,
+    "හතළිහ": 40, "හතළිස්": 40,
+    "පනහ": 50, "පනස්": 50,
+    "හැට": 60, "හැටක්": 60,
+    "හැත්තෑව": 70, "හැත්තෑ": 70,
+    "අසූව": 80, "අසූ": 80,
+    "අනූව": 90, "අනූ": 90,
+
+    # Compound Sinhala hundred prefix forms
+    "එක්සිය": 100, "දෙසිය": 200, "තුන්සිය": 300, "හාරසිය": 400, "පන්සිය": 500, "පන්සියය": 500
 }
 
 scale_words = {
+    # English
     "hundred": 100,
     "thousand": 1000,
     "million": 1000000,
-    "billion": 1000000000
+    "billion": 1000000000,
+
+    # Sinhala
+    "සියය": 100, "සිය": 100, "සියයක්": 100, "සියයම": 100,
+    "දහස": 1000, "දහසක්": 1000, "දාහ": 1000, "දාහක්": 1000, "දහස්": 1000,
+    "ලක්ෂය": 100000, "ලක්ෂ": 100000, "ලක්ෂයක්": 100000,
+    "මිලියන": 1000000, "මිලියනය": 1000000, "මිලියනයක්": 1000000,
+    "බිලියන": 1000000000, "බිලියනය": 1000000000, "බිලියනයක්": 1000000000
 }
+
+SINHALA_DIGITS = {
+    '෦': '0', '෧': '1', '෨': '2', '෩': '3', '෪': '4',
+    '෫': '5', '෬': '6', '෭': '7', '෮': '8', '෯': '9'
+}
+
+
+def normalize_text(text):
+    """Normalize text including Sinhala digits to standard ASCII digits."""
+    for s_digit, ascii_digit in SINHALA_DIGITS.items():
+        text = text.replace(s_digit, ascii_digit)
+    return text
 
 
 def words_to_number(text):
     """
-    Convert spoken English number words into a number.
+    Convert spoken English or Sinhala number words into a number.
 
     Examples:
         one hundred twenty five -> 125
-        two thousand five hundred -> 2500
-        twenty five thousand -> 25000
+        තුන -> 3
+        සියය -> 100
     """
 
-    text = text.lower()
+    text = normalize_text(text.lower())
     text = text.replace("-", " ")
     text = text.replace(",", " ")
 
     words = text.split()
 
-    # Remove "and"
-    words = [word for word in words if word != "and"]
+    # Remove "and" and Sinhala connector "සහ"
+    words = [word for word in words if word not in ["and", "සහ"]]
 
     # If the speech already contains a numeric value
     joined = "".join(words)
@@ -80,36 +134,33 @@ def words_to_number(text):
         if word in number_words:
             current += number_words[word]
 
-        elif word == "hundred":
+        elif word in ["hundred", "සියය", "සිය", "සියයක්"]:
             if current == 0:
                 current = 1
             current *= 100
 
-        elif word in ["thousand", "million", "billion"]:
+        elif word in scale_words:
             if current == 0:
                 current = 1
 
             total += current * scale_words[word]
             current = 0
 
-        elif word in ["point", "decimal"]:
+        elif word in ["point", "decimal", "දශම"]:
             # Decimal numbers handled separately
             break
 
     result = total + current
 
     # Handle decimal part
-    if "point" in words or "decimal" in words:
-
-        if "point" in words:
-            position = words.index("point")
-        else:
-            position = words.index("decimal")
+    decimal_markers = [m for m in ["point", "decimal", "දශම"] if m in words]
+    if decimal_markers:
+        position = words.index(decimal_markers[0])
 
         integer_words = words[:position]
         decimal_words = words[position + 1:]
 
-        integer_value = words_to_number(" ".join(integer_words))
+        integer_value = words_to_number(" ".join(integer_words)) if integer_words else 0
 
         decimal_digits = ""
 
@@ -121,7 +172,6 @@ def words_to_number(text):
                 if value < 10:
                     decimal_digits += str(value)
                 else:
-                    # For example "twenty five"
                     decimal_digits += str(value)
 
             elif word.isdigit():
@@ -139,11 +189,12 @@ def words_to_number(text):
 
 def convert_number(text):
 
-    text = text.lower().strip()
+    text = normalize_text(text.lower().strip())
 
     # Remove common filler words
-    text = text.replace("please", "")
-    text = text.replace("enter", "")
+    fillers = ["please", "enter", "කරුණාකර", "ඇතුළත් කරන්න", "ඇතුලත් කරන්න"]
+    for filler in fillers:
+        text = text.replace(filler, "")
     text = text.strip()
 
     # Direct numeric speech
@@ -169,6 +220,30 @@ def convert_number(text):
     return None
 
 
+def recognize_speech(recognizer, audio):
+    """
+    Recognize speech trying English first, then Sinhala.
+    Returns recognized text or None if failed.
+    """
+    # Try English (en-US)
+    try:
+        text = recognizer.recognize_google(audio, language="en-US")
+        if text:
+            return text.lower().strip()
+    except Exception:
+        pass
+
+    # Try Sinhala (si-LK)
+    try:
+        text = recognizer.recognize_google(audio, language="si-LK")
+        if text:
+            return text.lower().strip()
+    except Exception:
+        pass
+
+    return None
+
+
 # ============================================================
 # MAIN PROGRAM
 # ============================================================
@@ -188,22 +263,22 @@ if __name__ == "__main__":
     cell = excel.ActiveCell
 
     print("=" * 60)
-    print("       VOICE NUMBER ENTRY FOR EXCEL")
+    print("       VOICE NUMBER ENTRY FOR EXCEL (ENGLISH & SINHALA)")
     print("=" * 60)
 
     print(f"Excel Sheet : {sheet.Name}")
     print(f"Starting Cell : {cell.Address}")
 
     print()
-    print("Commands:")
-    print("  Say a number      -> Enter the number")
-    print("  'next'            -> Move to next row (downwards)")
-    print("  'back'            -> Move to previous row (upwards)")
-    print("  'clear'           -> Clear current cell")
-    print("  'stop'            -> Stop the program")
+    print("Commands / විධානයන්:")
+    print("  Say a number / අංකයක් කියන්න -> Enter the number")
+    print("  'next' / 'ඊළඟ'                -> Move to next row (downwards)")
+    print("  'back' / 'ආපසු' me             -> Move to previous row (upwards)")
+    print("  'clear' / 'මකන්න'             -> Clear current cell")
+    print("  'stop' / 'නවත්වන්න'          -> Stop the program")
     print()
     print("Example:")
-    print("  Say: one hundred twenty five")
+    print("  Say: one hundred twenty five OR සියය විසි පහ")
     print("  Excel: 125")
     print("=" * 60)
 
@@ -235,7 +310,7 @@ if __name__ == "__main__":
     print("Ready!")
     print()
     print(f"Current Excel cell: {current_cell.Address}")
-    print("Start speaking...")
+    print("Start speaking (English or Sinhala)...")
     print()
 
     while True:
@@ -254,23 +329,10 @@ if __name__ == "__main__":
 
             print("Processing...")
 
-            try:
+            text = recognize_speech(recognizer, audio)
 
-                text = recognizer.recognize_google(
-                    audio,
-                    language="en-US"
-                )
-
-            except sr.UnknownValueError:
-
+            if not text:
                 print("Could not understand. Please try again.")
-                print()
-                continue
-
-            except sr.RequestError:
-
-                print("Speech recognition service is unavailable.")
-                print("Please check your Internet connection.")
                 print()
                 continue
 
@@ -283,11 +345,8 @@ if __name__ == "__main__":
             # ------------------------------------------------
 
             if text in [
-                "stop",
-                "exit",
-                "quit",
-                "close",
-                "finish"
+                "stop", "exit", "quit", "close", "finish",
+                "නවත්වන්න", "නවත්තන්න", "නවතන්න", "අයින් වෙන්න", "නතර කරන්න"
             ]:
 
                 print()
@@ -299,9 +358,8 @@ if __name__ == "__main__":
             # ------------------------------------------------
 
             if text in [
-                "next",
-                "next row",
-                "next cell"
+                "next", "next row", "next cell",
+                "ඊළඟ", "ඊලඟ", "ඊළඟ පේළිය", "ඊළඟ කොටුව", "පහළට", "පහලට"
             ]:
 
                 # Move vertically downwards (increase Row number by 1 in the same Column)
@@ -318,10 +376,8 @@ if __name__ == "__main__":
             # ------------------------------------------------
 
             if text in [
-                "back",
-                "previous",
-                "previous row",
-                "previous cell"
+                "back", "previous", "previous row", "previous cell",
+                "ආපසු", "කලින්", "කලින් පේළිය", "ඉහළට", "උඩට"
             ]:
 
                 # Move vertically upwards (decrease Row number by 1, minimum row 1)
@@ -339,9 +395,8 @@ if __name__ == "__main__":
             # ------------------------------------------------
 
             if text in [
-                "clear",
-                "delete",
-                "clear cell"
+                "clear", "delete", "clear cell",
+                "මකන්න", "අයින් කරන්න", "ක්ලියර්"
             ]:
 
                 current_cell.ClearContents()
