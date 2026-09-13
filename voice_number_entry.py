@@ -304,8 +304,8 @@ if __name__ == "__main__":
                 "next cell"
             ]:
 
-                # Move vertically downwards to next row: Offset(1, 0) -> (1 row down, 0 columns right)
-                current_cell = current_cell.Offset(1, 0)
+                # Move vertically downwards (increase Row number by 1 in the same Column)
+                current_cell = sheet.Cells(current_cell.Row + 1, current_cell.Column)
                 current_cell.Select()
 
                 print(f"Moved to {current_cell.Address}")
@@ -324,8 +324,9 @@ if __name__ == "__main__":
                 "previous cell"
             ]:
 
-                # Move vertically upwards to previous row: Offset(-1, 0) -> (1 row up, 0 columns right)
-                current_cell = current_cell.Offset(-1, 0)
+                # Move vertically upwards (decrease Row number by 1, minimum row 1)
+                prev_row = max(1, current_cell.Row - 1)
+                current_cell = sheet.Cells(prev_row, current_cell.Column)
                 current_cell.Select()
 
                 print(f"Moved to {current_cell.Address}")
@@ -366,9 +367,9 @@ if __name__ == "__main__":
                     f"{current_cell.Address}"
                 )
 
-                # Automatically move to next row vertically (downward)
-                # Offset(1, 0) moves 1 row down and 0 columns right
-                current_cell = current_cell.Offset(1, 0)
+                # Automatically move to next row vertically (downwards)
+                # sheet.Cells(Row, Column): increment Row by 1 to move down to the next row
+                current_cell = sheet.Cells(current_cell.Row + 1, current_cell.Column)
 
                 current_cell.Select()
 
